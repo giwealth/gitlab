@@ -154,7 +154,6 @@ func httpGetRequest(url, token string, c *http.Client) (*http.Response, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
 		return nil, fmt.Errorf("request error response status code %v", resp.StatusCode)
