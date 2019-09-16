@@ -104,19 +104,13 @@ func (c *Client) GetRepRootList(projectID int, branch string) ([]File, error) {
 	url := fmt.Sprintf("%s/api/v4/projects/%v/repository/tree?per_page=100&ref=%s", c.BaseURL, projectID, branch)
 	client := &http.Client{}
 
-	resp, err := httpRequest(url, c.AccessToken, client)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	body, err := ioutil.ReadAll(resp.Body)
+	response, err := httpGetRequest(url, c.AccessToken, client)
 	if err != nil {
 		return nil, err
 	}
 
 	var files []File
-	err = json.Unmarshal(body, &files)
+	err = json.Unmarshal(response, &files)
 	if err != nil {
 		return nil, err
 	}
@@ -142,19 +136,29 @@ func (c *Client) CheckCIFile(projectID int, branch string) (bool, error) {
 }
 
 // httpRequest http请求，返回body
-func httpRequest(url, token string, c *http.Client) (*http.Response, error) {
+func httpGetRequest(url, token string, c *http.Client) (response []byte, err error) {
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		return nil, err
+		return response, err
 	}
 	req.Header.Set("Private-Token", token)
 
 	resp, err := c.Do(req)
 	if err != nil {
-		return nil, err
+		return response, err
+	}
+	defer resp.Body.Close()
+
+	f, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return response, err
 	}
 
-	return resp, nil
+	if resp.StatusCode < 200 || resp.StatusCode > 299 {
+		return response, fmt.Errorf("request error, %s", string(f))
+	}
+
+	return f, err
 }
 
 // AnalysisRepLanguage 分析存储库语言
@@ -232,18 +236,12 @@ func (c *Client) GetTrigger(projectID int) (triggerToken string, err error) {
 	client := &http.Client{}
 	var triggers []Trigger
 
-	resp, err := httpRequest(url, c.AccessToken, client)
-	if err != nil {
-		return
-	}
-	defer resp.Body.Close()
-
-	body, err := ioutil.ReadAll(resp.Body)
+	response, err := httpGetRequest(url, c.AccessToken, client)
 	if err != nil {
 		return
 	}
 
-	err = json.Unmarshal(body, &triggers)
+	err = json.Unmarshal(response, &triggers)
 	if err != nil {
 		return
 	}
@@ -262,19 +260,13 @@ func (c *Client) ListGroups() ([]Group, error) {
 	url := fmt.Sprintf("%s/api/v4/groups", c.BaseURL)
 	client := &http.Client{}
 
-	resp, err := httpRequest(url, c.AccessToken, client)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	body, err := ioutil.ReadAll(resp.Body)
+	response, err := httpGetRequest(url, c.AccessToken, client)
 	if err != nil {
 		return nil, err
 	}
 
 	var groups []Group
-	err = json.Unmarshal(body, &groups)
+	err = json.Unmarshal(response, &groups)
 	if err != nil {
 		return nil, err
 	}
@@ -287,19 +279,13 @@ func (c *Client) ListSubGroups(groupID int) ([]Group, error) {
 	url := fmt.Sprintf("%s/api/v4/groups/%v/subgroups", c.BaseURL, groupID)
 	client := &http.Client{}
 
-	resp, err := httpRequest(url, c.AccessToken, client)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	body, err := ioutil.ReadAll(resp.Body)
+	response, err := httpGetRequest(url, c.AccessToken, client)
 	if err != nil {
 		return nil, err
 	}
 
 	var subGroups []Group
-	err = json.Unmarshal(body, &subGroups)
+	err = json.Unmarshal(response, &subGroups)
 	if err != nil {
 		return nil, err
 	}
@@ -312,19 +298,13 @@ func (c *Client) ListGroupsProjects(groupID int) ([]Project, error) {
 	url := fmt.Sprintf("%s/api/v4/groups/%v/projects?simple=yes", c.BaseURL, groupID)
 	client := &http.Client{}
 
-	resp, err := httpRequest(url, c.AccessToken, client)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	body, err := ioutil.ReadAll(resp.Body)
+	response, err := httpGetRequest(url, c.AccessToken, client)
 	if err != nil {
 		return nil, err
 	}
 
 	var projects []Project
-	err = json.Unmarshal(body, &projects)
+	err = json.Unmarshal(response, &projects)
 	if err != nil {
 		return nil, err
 	}
