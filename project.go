@@ -1,6 +1,7 @@
 package gitlab
 
 import (
+	"strconv"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -104,13 +105,19 @@ func (c *Client) GetRepRootList(projectID int, branch string) ([]File, error) {
 	url := fmt.Sprintf("%s/api/v4/projects/%v/repository/tree?per_page=100&ref=%s", c.BaseURL, projectID, branch)
 	client := &http.Client{}
 
-	response, err := httpGetRequest(url, c.AccessToken, client)
+	resp, err := httpGetRequest(url, c.AccessToken, client)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
 
 	var files []File
-	err = json.Unmarshal(response, &files)
+	err = json.Unmarshal(body, &files)
 	if err != nil {
 		return nil, err
 	}
@@ -136,29 +143,24 @@ func (c *Client) CheckCIFile(projectID int, branch string) (bool, error) {
 }
 
 // httpRequest http请求，返回body
-func httpGetRequest(url, token string, c *http.Client) (response []byte, err error) {
+func httpGetRequest(url, token string, c *http.Client) (*http.Response, error) {
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		return response, err
+		return nil, err
 	}
 	req.Header.Set("Private-Token", token)
 
 	resp, err := c.Do(req)
 	if err != nil {
-		return response, err
+		return nil, err
 	}
 	defer resp.Body.Close()
 
-	f, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return response, err
-	}
-
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
-		return response, fmt.Errorf("request error, %s", string(f))
+		return nil, fmt.Errorf("request error response status code %v", resp.StatusCode)
 	}
 
-	return f, err
+	return resp, err
 }
 
 // AnalysisRepLanguage 分析存储库语言
@@ -236,12 +238,18 @@ func (c *Client) GetTrigger(projectID int) (triggerToken string, err error) {
 	client := &http.Client{}
 	var triggers []Trigger
 
-	response, err := httpGetRequest(url, c.AccessToken, client)
+	resp, err := httpGetRequest(url, c.AccessToken, client)
+	if err != nil {
+		return
+	}
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return
 	}
 
-	err = json.Unmarshal(response, &triggers)
+	err = json.Unmarshal(body, &triggers)
 	if err != nil {
 		return
 	}
@@ -257,18 +265,42 @@ func (c *Client) GetTrigger(projectID int) (triggerToken string, err error) {
 
 // ListGroups 获取所有组
 func (c *Client) ListGroups() ([]Group, error) {
-	url := fmt.Sprintf("%s/api/v4/groups", c.BaseURL)
-	client := &http.Client{}
-
-	response, err := httpGetRequest(url, c.AccessToken, client)
-	if err != nil {
-		return nil, err
-	}
-
 	var groups []Group
-	err = json.Unmarshal(response, &groups)
-	if err != nil {
-		return nil, err
+	page := 1
+	for {
+		var g []Group
+		url := fmt.Sprintf("%s/api/v4/groups?page=%v", c.BaseURL, page)
+		client := &http.Client{}
+	
+		resp, err := httpGetRequest(url, c.AccessToken, client)
+		if err != nil {
+			return nil, err
+		}
+		defer resp.Body.Close()
+	
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return nil, err
+		}
+	
+		// var groups []Group
+		err = json.Unmarshal(body, &g)
+		if err != nil {
+			return nil, err
+		}
+
+		groups = append(groups, g...)
+
+		totalPages, err := strconv.Atoi(resp.Header.Get("X-Total-Pages"))
+		if err != nil {
+			return nil, err
+		}
+
+		if page == totalPages {
+			break
+		}
+
+		page++
 	}
 
 	return groups, nil
@@ -279,13 +311,19 @@ func (c *Client) ListSubGroups(groupID int) ([]Group, error) {
 	url := fmt.Sprintf("%s/api/v4/groups/%v/subgroups", c.BaseURL, groupID)
 	client := &http.Client{}
 
-	response, err := httpGetRequest(url, c.AccessToken, client)
+	resp, err := httpGetRequest(url, c.AccessToken, client)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
 
 	var subGroups []Group
-	err = json.Unmarshal(response, &subGroups)
+	err = json.Unmarshal(body, &subGroups)
 	if err != nil {
 		return nil, err
 	}
@@ -298,13 +336,19 @@ func (c *Client) ListGroupsProjects(groupID int) ([]Project, error) {
 	url := fmt.Sprintf("%s/api/v4/groups/%v/projects?simple=yes", c.BaseURL, groupID)
 	client := &http.Client{}
 
-	response, err := httpGetRequest(url, c.AccessToken, client)
+	resp, err := httpGetRequest(url, c.AccessToken, client)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
 
 	var projects []Project
-	err = json.Unmarshal(response, &projects)
+	err = json.Unmarshal(body, &projects)
 	if err != nil {
 		return nil, err
 	}
