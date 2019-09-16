@@ -14,17 +14,17 @@ import (
 type Client struct {
 	BaseURL     string
 	AccessToken string
-	APIVersionPath string
+	// APIVersionPath string
 }
 
 // New create gitlab client
-func New(baseURL, accessToken string) Client {
-	return Client{
-		BaseURL: baseURL,
-		AccessToken: accessToken,
-		APIVersionPath: "/api/v4",
-	}	
-}
+// func New(baseURL, accessToken string) Client {
+// 	return Client{
+// 		BaseURL: baseURL,
+// 		AccessToken: accessToken,
+// 		APIVersionPath: "/api/v4",
+// 	}
+// }
 
 // httpRequest http请求，返回response
 func httpGetRequest(urlAddr, token string, c *http.Client) (*http.Response, error) {
