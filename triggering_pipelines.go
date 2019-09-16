@@ -2,7 +2,6 @@ package gitlab
 
 import (
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strings"
@@ -36,7 +35,7 @@ type TriggerPipelineResponse struct {
 }
 
 // TriggerPipeline 通过API触发管道, projectID为触发项目ID
-func (c *Client) TriggerPipeline(projectID int, triggerToken string, variables map[string]string) (response string, err error) {
+func (c *Client) TriggerPipeline(projectID int, triggerToken string, variables map[string]string) error {
 	client := http.Client{}
 
 	// 使用form提交数据
@@ -51,21 +50,20 @@ func (c *Client) TriggerPipeline(projectID int, triggerToken string, variables m
 	url := fmt.Sprintf("%s/api/v4/projects/%v/trigger/pipeline", strings.TrimSuffix(c.BaseURL, "/"), projectID)
 	req, err := http.NewRequest("POST", url, strings.NewReader(data.Encode()))
 	if err != nil {
-		return response, err
+		return err
 	}
 
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 
 	res, err := client.Do(req)
 	if err != nil {
-		return response, err
+		return err
 	}
 	defer res.Body.Close()
 
-	f, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		return response, err
+	if res.StatusCode < 200 || res.StatusCode > 299 {
+		return fmt.Errorf("request error response status code %v", res.StatusCode)
 	}
 
-	return string(f), nil
+	return nil
 }
