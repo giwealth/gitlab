@@ -47,7 +47,7 @@ func httpGetRequest(urlAddr, token string, c *http.Client) (*http.Response, erro
 }
 
 // GetAPI get gitlab api
-func (c *Client) GetAPI(addr string, v interface{}) error {
+func getAPI(addr, token string, v interface{}) error {
 	var list []interface{}
 	page := 1
 	for {
@@ -66,7 +66,7 @@ func (c *Client) GetAPI(addr string, v interface{}) error {
 			return nil
 		}
 
-		req.Header.Set("Private-Token", c.AccessToken)
+		req.Header.Set("Private-Token", token)
 
 		res, err := httpClient.Do(req)
 		if err != nil {
