@@ -1,57 +1,64 @@
 package gitlab
 
 import (
-	"strconv"
-	"io/ioutil"
 	"encoding/json"
-	// "strings"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/url"
+	"strconv"
+	"strings"
+)
+
+const (
+	apiVersionPath = "/api/v4"
 )
 
 // Client gitlab api client
 type Client struct {
 	BaseURL     string
 	AccessToken string
-	// APIVersionPath string
 }
 
-// New create gitlab client
-// func New(baseURL, accessToken string) Client {
-// 	return Client{
-// 		BaseURL: baseURL,
-// 		AccessToken: accessToken,
-// 		APIVersionPath: "/api/v4",
-// 	}
-// }
+// GetResource get gitlab resource detail
+func (c *Client) GetResource(api string, v interface{}) error {
+	httpClient := &http.Client{}
 
-// httpRequest http请求，返回response
-func httpGetRequest(urlAddr, token string, c *http.Client) (*http.Response, error) {
-	req, err := http.NewRequest("GET", urlAddr, nil)
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s%s%s", c.BaseURL, apiVersionPath, api), nil)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	req.Header.Set("Private-Token", token)
+	req.Header.Set("Private-Token", c.AccessToken)
 
-	resp, err := c.Do(req)
+	res, err := httpClient.Do(req)
 	if err != nil {
-		return nil, err
+		return err
+	}
+	defer res.Body.Close()
+
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return err
 	}
 
-	if resp.StatusCode < 200 || resp.StatusCode > 299 {
-		return nil, fmt.Errorf("request error response status code %v", resp.StatusCode)
+	if res.StatusCode < 200 || res.StatusCode > 299 {
+		return fmt.Errorf("request error response status code %v, response:%v", res.StatusCode, string(body))
 	}
 
-	return resp, err
+	err = json.Unmarshal(body, &v)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
-// GetAPI get gitlab api
-func getAPI(addr, token string, v interface{}) error {
-	var list []interface{}
+// GetResourceList get gitlab resource list
+func (c *Client) GetResourceList(api string, v interface{}) error {
+	var response string
 	page := 1
 	for {
-		u, err := url.Parse(addr)
+		u, err := url.Parse(fmt.Sprintf("%s%s%s", c.BaseURL, apiVersionPath, api))
 		if err != nil {
 			return err
 		}
@@ -63,10 +70,10 @@ func getAPI(addr, token string, v interface{}) error {
 
 		req, err := http.NewRequest("GET", u.String(), nil)
 		if err != nil {
-			return nil
+			return err
 		}
 
-		req.Header.Set("Private-Token", token)
+		req.Header.Set("Private-Token", c.AccessToken)
 
 		res, err := httpClient.Do(req)
 		if err != nil {
@@ -74,24 +81,22 @@ func getAPI(addr, token string, v interface{}) error {
 		}
 		defer res.Body.Close()
 
+		body, err := ioutil.ReadAll(res.Body)
+		if err != nil {
+			return err
+		}
+
 		if res.StatusCode < 200 || res.StatusCode > 299 {
-			return fmt.Errorf("request error response status code %v", res.StatusCode)
+			return fmt.Errorf("request error response status code %v, response:%s", res.StatusCode, string(body))
 		}
 
-		var l []interface{}
-		f, err := ioutil.ReadAll(res.Body)
-		if err != nil {
-			return err
+		response += string(body)
+
+		s := res.Header.Get("X-Total-Pages")
+		if s == "" {
+			break
 		}
-
-		err = json.Unmarshal(f, &l)
-		if err != nil {
-			return err
-		}
-
-		list = append(list, l...)
-
-		totalPages, err := strconv.Atoi(res.Header.Get("X-Total-Pages"))
+		totalPages, err := strconv.Atoi(s)
 		if err != nil {
 			return err
 		}
@@ -103,7 +108,50 @@ func getAPI(addr, token string, v interface{}) error {
 		page++
 	}
 
-	v = list
+	response = strings.ReplaceAll(response, "][", ",")
+
+	err := json.Unmarshal([]byte(response), &v)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// CreateResource 创建
+func (c *Client) CreateResource(api string, v interface{}) error {
+	client := http.Client{}
+
+	u, err := url.Parse(fmt.Sprintf("%s%s%s", c.BaseURL, apiVersionPath, api))
+	if err != nil {
+		return err
+	}
+
+	req, err := http.NewRequest("POST", u.String(), nil)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Private-Token", c.AccessToken)
+	fmt.Println(u.String())
+
+	res, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer res.Body.Close()
+
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return err
+	}
+
+	if res.StatusCode < 200 || res.StatusCode > 299 {
+		return fmt.Errorf("request error response status code %v, response:%s", res.StatusCode, string(body))
+	}
+
+	if err = json.Unmarshal(body, &v); err != nil {
+		return err
+	}
 
 	return nil
 }

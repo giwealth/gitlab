@@ -1,11 +1,7 @@
 package gitlab
 
 import (
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"net/http"
-	"strings"
 )
 
 // Trigger 触发器信息
@@ -27,60 +23,22 @@ type Trigger struct {
 }
 
 // CreateTrigger 创建触发器
-func (c *Client) CreateTrigger(projectID int) (tiggerToken string, err error) {
-	client := http.Client{}
-
-	url := fmt.Sprintf("%s/api/v4/projects/%v/triggers?description=deploy", strings.TrimSuffix(c.BaseURL, "/"), projectID)
-
-	req, err := http.NewRequest("POST", url, nil)
+func (c *Client) CreateTrigger(projectID int, description string) (Trigger, error) {
+	var trigger Trigger
+	err := c.CreateResource(fmt.Sprintf("/projects/%v/triggers?description=%s", projectID, description), &trigger)
 	if err != nil {
-		return
-	}
-	req.Header.Set("Private-Token", c.AccessToken)
-
-	res, err := client.Do(req)
-	if err != nil {
-		return
-	}
-	defer res.Body.Close()
-
-	if res.StatusCode < 200 || res.StatusCode > 299 {
-		return "", fmt.Errorf("request error response status code %v", res.StatusCode)
+		return trigger, err
 	}
 
-	body, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		return
-	}
-
-	var tigger Trigger
-	if err = json.Unmarshal(body, &tigger); err != nil {
-		return
-	}
-
-	return tigger.Token, nil
+	return trigger, nil
 }
 
 // GetTrigger 获取仓库触发器
 func (c *Client) GetTrigger(projectID int) (triggerToken string, err error) {
-	url := fmt.Sprintf("%s/api/v4/projects/%v/triggers", c.BaseURL, projectID)
-	client := &http.Client{}
 	var triggers []Trigger
-
-	res, err := httpGetRequest(url, c.AccessToken, client)
+	err = c.GetResourceList(fmt.Sprintf("/projects/%v/triggers", projectID), &triggers)
 	if err != nil {
-		return
-	}
-	defer res.Body.Close()
-
-	body, err := ioutil.ReadAll(res.Body)
-	if err != nil {
-		return
-	}
-
-	err = json.Unmarshal(body, &triggers)
-	if err != nil {
-		return
+		return triggerToken, err
 	}
 
 	for _, trigger := range triggers {

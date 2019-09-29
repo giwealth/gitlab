@@ -1,17 +1,14 @@
 package gitlab
 
 import (
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"net/http"
-	"strings"
 )
 
 // Project gitlab project info
 type Project struct {
 	ID                int      `json:"id"`
 	Description       string   `json:"description"`
+	Visibility		  string   `json:"visibility"`
 	DefaultBranch     string   `json:"default_branch"`
 	SSHURLToRepo      string   `json:"ssh_url_to_repo"`
 	HTTPURLToRepo     string   `json:"http_url_to_repo"`
@@ -34,44 +31,39 @@ type Project struct {
 		Kind     string `json:"kind"`
 		FullPath string `json:"full_path"`
 		ParentID int    `json:"parent_id"`
-	}
+	} `json:"namespace"`
 	TriggerToken string `json:"trigger_token"`
+	DeployProjectID int `json:"deploy_project_id"`
 }
 
 // CreateProject 新建仓库
 func (c *Client) CreateProject(projectName string, namespaceID int) (Project, error) {
 	var project Project
-	client := http.Client{}
-
-	url := fmt.Sprintf(
-		"%s/api/v4/projects?name=%s&namespace_id=%v&visibility=private",
-		strings.TrimSuffix(c.BaseURL, "/"),
-		projectName,
-		namespaceID,
-	)
-
-	req, err := http.NewRequest("POST", url, nil)
-	if err != nil {
-		return project, err
-	}
-	req.Header.Set("Private-Token", c.AccessToken)
-
-	res, err := client.Do(req)
-	if err != nil {
-		return project, err
-	}
-	defer res.Body.Close()
-
-	if res.StatusCode < 200 || res.StatusCode > 299 {
-		return project, fmt.Errorf("request error response status code %v", res.StatusCode)
-	}
-
-	respbody, err := ioutil.ReadAll(res.Body)
+	err := c.CreateResource(fmt.Sprintf("/projects?name=%s&namespace_id=%v&visibility=private", projectName, namespaceID), &project)
 	if err != nil {
 		return project, err
 	}
 
-	if err = json.Unmarshal(respbody, &project); err != nil {
+	return project, nil
+}
+
+// ListProjects list all projects
+func (c *Client) ListProjects() ([]Project, error) {
+	var projects []Project
+
+	err := c.GetResourceList("/projects?per_page=100", &projects)
+	if err != nil {
+		return nil, err
+	}
+
+	return projects, nil
+}
+
+// GetProject get single project
+func (c *Client) GetProject(projectID int) (Project, error) {
+	var project Project
+	err := c.GetResource(fmt.Sprintf("/projects/%v", projectID), &project)
+	if err != nil {
 		return project, err
 	}
 

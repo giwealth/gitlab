@@ -3,9 +3,7 @@ package gitlab
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net/http"
-	"strconv"
 	"strings"
 )
 
@@ -38,39 +36,9 @@ type Action struct {
 // GetRepRootList 获取仓库根目录文件和目录列表
 func (c *Client) GetRepRootList(projectID int, branch string) ([]File, error) {
 	var files []File
-	page := 1
-	for {
-		url := fmt.Sprintf("%s/api/v4/projects/%v/repository/tree?per_page=100&ref=%s&page=%v", c.BaseURL, projectID, branch, page)
-		client := &http.Client{}
-
-		res, err := httpGetRequest(url, c.AccessToken, client)
-		if err != nil {
-			return nil, err
-		}
-		defer res.Body.Close()
-
-		body, err := ioutil.ReadAll(res.Body)
-		if err != nil {
-			return nil, err
-		}
-
-		var f []File
-		err = json.Unmarshal(body, &f)
-		if err != nil {
-			return nil, err
-		}
-		files = append(files, f...)
-
-		totalPages, err := strconv.Atoi(res.Header.Get("X-Total-Pages"))
-		if err != nil {
-			return nil, err
-		}
-
-		if page == totalPages {
-			break
-		}
-
-		page++
+	err := c.GetResourceList(fmt.Sprintf("/projects/%v/repository/tree?per_page=100&ref=%s", projectID, branch), &files)
+	if err != nil {
+		return nil, err
 	}
 
 	return files, nil
